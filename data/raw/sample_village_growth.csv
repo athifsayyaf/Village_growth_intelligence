@@ -1,0 +1,13 @@
+village_id,village_name,state,district,latitude,longitude,population_base,population_latest,ntl_base,ntl_latest,builtup_base,builtup_latest,road_km_base,road_km_latest,poi_count_base,poi_count_latest
+V001,Basapura,Karnataka,Bengaluru Rural,13.238,77.711,4200,5100,8.5,19.7,1.2,2.9,6.1,9.8,12,34
+V002,Chandpur,Uttar Pradesh,Varanasi,25.329,82.992,6100,6900,6.2,12.4,0.9,1.8,4.3,6.1,9,18
+V003,Dholasan,Gujarat,Mehsana,23.587,72.369,5300,6500,7.1,17.9,1.4,3.0,5.7,10.4,14,36
+V004,Kharadi,Maharashtra,Pune,18.551,73.936,7900,10400,18.0,32.0,3.2,5.6,10.2,14.5,42,77
+V005,Rampur,Rajasthan,Jaipur,26.951,75.689,4700,5200,5.2,8.1,0.8,1.1,3.4,4.2,7,11
+V006,Madanpur,Bihar,Patna,25.608,85.209,6900,7600,4.5,9.8,0.7,1.6,2.9,5.9,5,19
+V007,Singur,West Bengal,Hooghly,22.809,88.229,8200,9100,10.1,15.6,2.1,2.8,8.9,10.2,31,42
+V008,Perumbakkam,Tamil Nadu,Chengalpattu,12.905,80.199,6100,8500,13.4,29.6,2.8,6.4,7.5,13.7,28,69
+V009,Kothapalli,Telangana,Rangareddy,17.311,78.581,3900,5200,6.8,18.9,1.0,3.8,4.8,9.9,11,45
+V010,Khordha Gaon,Odisha,Khordha,20.188,85.622,4600,5700,5.9,11.3,1.1,2.2,4.0,6.8,8,21
+V011,Mavoor,Kerala,Kozhikode,11.266,75.915,7400,8200,16.2,20.4,3.4,4.1,11.0,12.2,38,51
+V012,Bijwasan,Delhi,South West Delhi,28.532,77.055,9800,12200,24.5,38.7,4.2,7.0,14.5,17.9,65,101
