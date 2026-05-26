@@ -1,8 +1,8 @@
 # Village Economic Growth Intelligence
 
-This repository contains a reproducible workflow for identifying villages in India that show strong economic-growth signals over the most recent five-year satellite window used in the analysis.
+This repository contains a simple workflow for identifying villages in India with strong recent growth signals from satellite data.
 
-The implementation is intentionally transparent: it converts village-level indicators into growth signals and exports the ranked villages plus simple visual outputs.
+![Workflow](docs/figures/workflow.png)
 
 ## What is included
 
@@ -13,6 +13,7 @@ The implementation is intentionally transparent: it converts village-level indic
 - `data/raw/sample_village_growth.csv` - small sample input so the pipeline runs immediately.
 - `data/processed/top_100_villages_Kritter.csv` - submitted ranked output cleaned from the Google Earth Engine export.
 - `data/processed/top_100_villages.csv` - duplicate convenience copy of the submitted ranked output.
+- `docs/figures/workflow.png` - methodology flow chart.
 - `outputs/figures/` - generated charts and map HTML.
 - `docs/methodology.md` - step-by-step assignment structure and scoring logic.
 - `docs/slides_outline.md` - 5-7 slide presentation structure.
@@ -24,7 +25,7 @@ pip install -r requirements.txt
 python src/pipeline.py --input data/raw/sample_village_growth.csv --output data/processed/top_100_villages.csv
 ```
 
-The sample file is synthetic and exists only to prove the Python pipeline. The submitted result was produced in Google Earth Engine from the uploaded village polygon asset, cleaned with `src/clean_gee_top100_export.py`, and copied into `data/processed/top_100_villages_Kritter.csv`.
+The submitted result was produced in Google Earth Engine from the uploaded village polygon asset, cleaned with `src/clean_gee_top100_export.py`, and saved at `data/processed/top_100_villages_Kritter.csv`.
 
 ## Recommended public data sources
 

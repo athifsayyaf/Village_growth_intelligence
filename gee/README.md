@@ -1,21 +1,17 @@
-# Google Earth Engine Extraction
+# Google Earth Engine Code
 
-Use `village_growth_feature_extraction.js` in the Google Earth Engine Code Editor.
+This folder stores the Google Earth Engine workflow used for the satellite analysis.
 
-## Steps
+Main script:
 
-1. Upload an India village boundary or centroid file as an Earth Engine asset.
-2. Make sure the asset has these properties: `village_id`, `village_name`, `state`, `district`.
-3. Replace `users/YOUR_USERNAME/india_villages` in the script with your asset path.
-4. Run the script and start the `Export.table.toDrive` task.
-5. Download the CSV and place it in `data/raw/`.
-6. Run the Python ranking pipeline:
+`village_growth_feature_extraction.js`
 
-```bash
-python src/pipeline.py --input data/raw/real_village_growth_features.csv --output data/processed/top_100_villages.csv
-```
+It uses:
 
-## Dataset citations
+- Village boundary asset uploaded to GEE
+- VIIRS night-time lights, 2021-2025
+- Dynamic World built-area change, 2021-2025
+- Zonal statistics by village
+- Export to CSV
 
-- VIIRS annual night lights V2.2: `NOAA/VIIRS/DNB/ANNUAL_V22`, annual global VIIRS nighttime lights from 2012 to 2024.
-- GHSL built-up surface P2023A: `JRC/GHSL/P2023A/GHS_BUILT_S`, built-up surface in square meters per 100 m grid cell.
+Run the script in the Earth Engine Code Editor, then download the exported CSV and place it in `data/processed/`.
