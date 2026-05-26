@@ -7,57 +7,27 @@ This repository contains a simple workflow for identifying villages in India wit
 ## What is included
 
 - `gee/village_growth_feature_extraction.js` - Google Earth Engine script for VIIRS night-light growth and Dynamic World built-area growth.
-
-- `src/pipeline.py` - extraction, cleaning, feature engineering, scoring, and export pipeline.
 - `src/clean_gee_top100_export.py` - cleanup helper for Google Earth Engine CSV exports.
-- `data/raw/sample_village_growth.csv` - small sample input so the pipeline runs immediately.
 - `data/processed/top_100_villages_Kritter.csv` - submitted ranked output cleaned from the Google Earth Engine export.
 - `data/processed/top_100_villages.csv` - duplicate convenience copy of the submitted ranked output.
 - `docs/figures/workflow.png` - methodology flow chart.
-- `outputs/figures/` - generated charts and map HTML.
-- `docs/methodology.md` - step-by-step assignment structure and scoring logic.
+- `docs/methodology.md` - simple methodology note.
 - `docs/slides_outline.md` - 5-7 slide presentation structure.
 
-## Quick start
+## Used datasets
 
-```bash
-pip install -r requirements.txt
-python src/pipeline.py --input data/raw/sample_village_growth.csv --output data/processed/top_100_villages.csv
-```
+- Survey of India village boundary database: https://surveyofindia.gov.in/pages/village-boundary-data-base-of-entire-india
+- VIIRS monthly night-time lights: `NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG`
+- Google Dynamic World built-area probability: `GOOGLE/DYNAMICWORLD/V1`
 
 The submitted result was produced in Google Earth Engine from the uploaded village polygon asset, cleaned with `src/clean_gee_top100_export.py`, and saved at `data/processed/top_100_villages_Kritter.csv`.
 
-## Recommended public data sources
+## Scoring
 
-1. VIIRS monthly night-time lights composites from NASA/NOAA via Google Earth Engine: proxy for electrification, activity, and commercial intensity.
-2. Census 2011 village directory or LGD village master data: village identifiers, district/state mapping, rural population baseline.
-3. Google Dynamic World land-cover probabilities: built-area change signal.
-4. OpenStreetMap/Geofabrik roads and POIs: optional future road connectivity and amenity validation.
-5. PMGSY or government infrastructure datasets: optional future rural road validation.
-
-## Core scoring definition
-
-Economic growth is defined as multi-year improvement in visible economic activity and settlement expansion. The Earth Engine workflow supports a combined score that blends:
-
-- night-light percent growth, 2021-2025: 70%
-- Dynamic World built-area percent growth, 2021-2025: 30%
-
-The weights are easy to change in `gee/village_growth_feature_extraction.js`. The current provided CSV contains the VIIRS night-light ranking fields exported from Earth Engine.
-
-## Final submission checklist
-
-- Verify `data/processed/top_100_villages_Kritter.csv`.
-- Review `gee/village_growth_feature_extraction.js` and `docs/methodology.md`.
-- If a combined Dynamic World score is required in the final CSV, rerun the GEE script and replace the processed CSV with the new export.
-- Fill the presentation using `docs/slides_outline.md`.
-- Cite VIIRS, Dynamic World, and the source village boundary shapefiles in the final write-up.
-
+Villages were ranked using night-light growth from 2021 to 2025. The GEE script also includes Dynamic World built-area growth as an added signal.
 
 ## Google Earth Engine extraction
 
 Open `gee/village_growth_feature_extraction.js` in the Earth Engine Code Editor, confirm the village asset path, run the export task, and save the exported CSV under `data/processed/`.
 
-Dataset references:
-
-- VIIRS monthly night lights: https://developers.google.com/earth-engine/datasets/catalog/NOAA_VIIRS_DNB_MONTHLY_V1_VCMSLCFG
-- Dynamic World V1: https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_DYNAMICWORLD_V1
+Final files to review: `data/processed/top_100_villages_Kritter.csv`, `gee/village_growth_feature_extraction.js`, and `docs/methodology.md`.
