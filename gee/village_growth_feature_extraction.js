@@ -1,168 +1,164 @@
 /****
-Village Economic Growth Intelligence - Google Earth Engine extraction script
+Village Growth Intelligence - Google Earth Engine extraction script
 
-Purpose:
-  Build village-level satellite features for the Python ranking pipeline.
+Workflow:
+  Village polygons
+      -> VIIRS night-light growth, 2021-2025
+      -> Dynamic World built-area growth, 2021-2025
+      -> zonal statistics
+      -> weighted growth score
+      -> ranked top villages
 
-Inputs you must provide:
-  1. Upload a village boundary or village centroid asset to Earth Engine.
-  2. The asset should include at least:
-       village_id, village_name, state, district
-  3. Replace VILLAGE_ASSET below with your own asset path.
+Input asset used for the submitted run:
+  projects/villagepro/assets/all_india_village_boundaries_gee_upload
 
 Official GEE datasets used:
-  - VIIRS annual night lights V2.2: NOAA/VIIRS/DNB/ANNUAL_V22
-  - GHSL built-up surface P2023A: JRC/GHSL/P2023A/GHS_BUILT_S
+  - VIIRS monthly night lights: NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG
+  - Dynamic World land cover probabilities: GOOGLE/DYNAMICWORLD/V1
 
 Output:
-  A CSV in Google Drive with village_id/name/state/district and growth features.
-  Download it and place it at data/raw/real_village_growth_features.csv, then run:
-    python src/pipeline.py --input data/raw/real_village_growth_features.csv --output data/processed/top_100_villages.csv
+  Exported CSV copied into data/processed/top_100_villages_Kritter.csv
 ****/
 
-// -----------------------------------------------------------------------------
-// 1. Configuration
-// -----------------------------------------------------------------------------
-
-var VILLAGE_ASSET = 'users/YOUR_USERNAME/india_villages';
-var BASE_YEAR = 2019;
-var LATEST_YEAR = 2024;
-var EXPORT_FOLDER = 'Village_growth_intelligence';
-var EXPORT_DESCRIPTION = 'village_growth_features_viirs_ghsl';
-
-// If your input is village centroids rather than polygons, buffer each point.
-// 1500 meters is a reasonable first-pass radius for village-level extraction.
-var USE_POINT_BUFFER = false;
-var POINT_BUFFER_METERS = 1500;
-
-var villagesRaw = ee.FeatureCollection(VILLAGE_ASSET);
-
 var villages = ee.FeatureCollection(
-  ee.Algorithms.If(
-    USE_POINT_BUFFER,
-    villagesRaw.map(function(feature) {
-      return feature.buffer(POINT_BUFFER_METERS).copyProperties(feature);
-    }),
-    villagesRaw
-  )
+  'projects/villagepro/assets/all_india_village_boundaries_gee_upload'
 );
 
 // -----------------------------------------------------------------------------
-// 2. Satellite source helpers
+// 1. Night lights growth from VIIRS monthly composites
 // -----------------------------------------------------------------------------
 
-function getViirsAnnual(year) {
-  return ee.ImageCollection('NOAA/VIIRS/DNB/ANNUAL_V22')
-    .filter(ee.Filter.calendarRange(year, year, 'year'))
-    .select('average')
-    .first()
-    .rename('ntl_' + year);
-}
+var viirs = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG')
+  .select('avg_rad');
 
-function getGhslBuiltSurface(year) {
-  return ee.Image('JRC/GHSL/P2023A/GHS_BUILT_S/' + year)
-    .select('built_surface')
-    .rename('builtup_' + year);
-}
+var ntl2021 = viirs
+  .filterDate('2021-01-01', '2022-01-01')
+  .mean()
+  .rename('ntl_2021');
 
-var ntlBase = getViirsAnnual(BASE_YEAR);
-var ntlLatest = getViirsAnnual(LATEST_YEAR);
+var ntl2025 = viirs
+  .filterDate('2025-01-01', '2026-01-01')
+  .mean()
+  .rename('ntl_latest');
 
-// GHSL built-up is available in 5-year intervals. For a 5-year assignment window,
-// 2020 and 2025 are practical choices. Change these if your analysis window differs.
-var builtBaseYear = 2020;
-var builtLatestYear = 2025;
-var builtBase = getGhslBuiltSurface(builtBaseYear);
-var builtLatest = getGhslBuiltSurface(builtLatestYear);
+ntl2021 = ntl2021.updateMask(ntl2021.gte(0));
+ntl2025 = ntl2025.updateMask(ntl2025.gte(0));
+
+var ntlAbsGrowth = ntl2025
+  .subtract(ntl2021)
+  .rename('ntl_abs_growth');
 
 // -----------------------------------------------------------------------------
-// 3. Village-level aggregation
+// 2. Built-area growth from Dynamic World
 // -----------------------------------------------------------------------------
 
-var featureImage = ee.Image.cat([
-  ntlBase,
-  ntlLatest,
-  builtBase,
-  builtLatest
-]);
+var dynamicWorld = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+  .select('built');
 
-var reduced = featureImage.reduceRegions({
+var built2021 = dynamicWorld
+  .filterDate('2021-01-01', '2022-01-01')
+  .mean()
+  .rename('built_2021');
+
+var built2025 = dynamicWorld
+  .filterDate('2025-01-01', '2026-01-01')
+  .mean()
+  .rename('built_2025');
+
+var builtAbsGrowth = built2025
+  .subtract(built2021)
+  .rename('built_abs_growth');
+
+// -----------------------------------------------------------------------------
+// 3. Zonal statistics
+// -----------------------------------------------------------------------------
+
+var growthImage = ntl2021
+  .addBands(ntl2025)
+  .addBands(ntlAbsGrowth)
+  .addBands(built2021)
+  .addBands(built2025)
+  .addBands(builtAbsGrowth);
+
+var villageStatsRaw = growthImage.reduceRegions({
   collection: villages,
   reducer: ee.Reducer.mean(),
-  scale: 500,
-  tileScale: 4
+  scale: 100,
+  tileScale: 16
 });
 
-function addGrowthColumns(feature) {
-  var ntlBaseValue = ee.Number(feature.get('ntl_' + BASE_YEAR));
-  var ntlLatestValue = ee.Number(feature.get('ntl_' + LATEST_YEAR));
-  var builtBaseValue = ee.Number(feature.get('builtup_' + builtBaseYear));
-  var builtLatestValue = ee.Number(feature.get('builtup_' + builtLatestYear));
-
-  var ntlGrowth = ntlLatestValue.subtract(ntlBaseValue)
-    .divide(ntlBaseValue.max(0.001));
-  var builtupGrowth = builtLatestValue.subtract(builtBaseValue)
-    .divide(builtBaseValue.max(0.001));
-
-  var centroid = feature.geometry().centroid(30);
-
-  return feature.set({
-    ntl_base: ntlBaseValue,
-    ntl_latest: ntlLatestValue,
-    builtup_base: builtBaseValue,
-    builtup_latest: builtLatestValue,
-    ntl_growth_pct: ntlGrowth,
-    builtup_growth_pct: builtupGrowth,
-    latitude: centroid.coordinates().get(1),
-    longitude: centroid.coordinates().get(0),
-    base_year: BASE_YEAR,
-    latest_year: LATEST_YEAR,
-    builtup_base_year: builtBaseYear,
-    builtup_latest_year: builtLatestYear
-  });
-}
-
-var output = reduced.map(addGrowthColumns);
-
 // -----------------------------------------------------------------------------
-// 4. Quick visual QA
+// 4. Growth score
 // -----------------------------------------------------------------------------
 
-Map.centerObject(villages.limit(1), 7);
-Map.addLayer(ntlBase, {min: 0, max: 20, palette: ['000000', '1b4965', 'fca311', 'ffffff']}, 'VIIRS base');
-Map.addLayer(ntlLatest, {min: 0, max: 20, palette: ['000000', '1b4965', 'fca311', 'ffffff']}, 'VIIRS latest');
-Map.addLayer(builtLatest, {min: 0, max: 8000, palette: ['000000', 'ffffff']}, 'GHSL built-up latest');
-Map.addLayer(villages.style({color: '00ffff', fillColor: '00000000', width: 1}), {}, 'Villages');
+var villageStats = villageStatsRaw
+  .filter(ee.Filter.notNull([
+    'ntl_2021',
+    'ntl_latest',
+    'built_2021',
+    'built_2025'
+  ]))
+  .filter(ee.Filter.gt('ntl_2021', 0))
+  .map(function(feature) {
+    var ntlBase = ee.Number(feature.get('ntl_2021'));
+    var ntlLatest = ee.Number(feature.get('ntl_latest'));
+    var builtBase = ee.Number(feature.get('built_2021'));
+    var builtLatest = ee.Number(feature.get('built_2025'));
 
-print('Village sample', output.limit(5));
-print('Village count', output.size());
+    var ntlAbs = ntlLatest.subtract(ntlBase);
+    var ntlPct = ntlAbs.divide(ntlBase).multiply(100);
 
-// -----------------------------------------------------------------------------
-// 5. Export
-// -----------------------------------------------------------------------------
+    var builtAbs = builtLatest.subtract(builtBase);
+    var builtPct = ee.Algorithms.If(
+      builtBase.gt(0),
+      builtAbs.divide(builtBase).multiply(100),
+      builtAbs.multiply(100)
+    );
+
+    var growthScore = ntlPct.multiply(0.70)
+      .add(ee.Number(builtPct).multiply(0.30));
+
+    return feature.set({
+      ntl_abs_growth_clean: ntlAbs,
+      ntl_pct_growth_clean: ntlPct,
+      built_abs_growth_clean: builtAbs,
+      built_pct_growth_clean: builtPct,
+      growth_score: growthScore
+    });
+  })
+  .filter(ee.Filter.notNull(['growth_score']));
+
+var top100 = villageStats
+  .sort('growth_score', false)
+  .limit(100);
+
+// Keep console prints small to avoid Earth Engine memory errors.
+print('Village asset sample', villages.limit(3));
+print('VIIRS 2021 image count', viirs.filterDate('2021-01-01', '2022-01-01').size());
+print('VIIRS 2025 image count', viirs.filterDate('2025-01-01', '2026-01-01').size());
+print('Dynamic World 2021 image count', dynamicWorld.filterDate('2021-01-01', '2022-01-01').size());
+print('Dynamic World 2025 image count', dynamicWorld.filterDate('2025-01-01', '2026-01-01').size());
+
+Map.setCenter(78.9629, 22.5937, 5);
+Map.addLayer(ntlAbsGrowth, {
+  min: -5,
+  max: 10,
+  palette: ['red', 'white', 'yellow']
+}, 'Night-light absolute growth');
+Map.addLayer(builtAbsGrowth, {
+  min: -0.1,
+  max: 0.3,
+  palette: ['red', 'white', 'blue']
+}, 'Dynamic World built growth');
 
 Export.table.toDrive({
-  collection: output,
-  description: EXPORT_DESCRIPTION,
-  folder: EXPORT_FOLDER,
-  fileNamePrefix: EXPORT_DESCRIPTION,
-  fileFormat: 'CSV',
-  selectors: [
-    'village_id',
-    'village_name',
-    'state',
-    'district',
-    'latitude',
-    'longitude',
-    'ntl_base',
-    'ntl_latest',
-    'builtup_base',
-    'builtup_latest',
-    'ntl_growth_pct',
-    'builtup_growth_pct',
-    'base_year',
-    'latest_year',
-    'builtup_base_year',
-    'builtup_latest_year'
-  ]
+  collection: villageStats,
+  description: 'all_villages_ntl_dynamicworld_growth_2021_2025',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: top100,
+  description: 'top_100_villages_growth_score_2021_2025',
+  fileFormat: 'CSV'
 });

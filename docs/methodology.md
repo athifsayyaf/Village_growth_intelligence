@@ -1,74 +1,83 @@
-# Methodology and Work Plan
+# Methodology Note
 
-## 1. Frame the problem
+## Objective
 
-Goal: rank the top 100 Indian villages showing the strongest economic growth signals over the most recent five-year period available.
+The goal is to identify Indian villages with the strongest recent economic-growth signals using reproducible, public geospatial data. The current ranked output is stored at `data/processed/top_100_villages_Kritter.csv`.
 
-Working definition: a village is considered economically growing when satellite-observable activity and supporting infrastructure increase together. A single signal, such as night lights alone, can be noisy, so the score combines multiple signals.
+This is a proxy-based analysis. It does not claim to directly measure income or GDP at village level. The current exported CSV ranks villages by night-time light growth. The included Earth Engine workflow also adds Dynamic World built-area growth for a stronger combined version.
 
-## 2. Data source plan
+## Input Boundary Data
 
-Use the following sources and document the download date, URL, coverage, and limitations:
+Village polygons were assembled from downloaded state/UT village boundary shapefiles and merged into one India-wide shapefile. The merged boundary asset was uploaded to Google Earth Engine as:
 
-| Source | Use | Why it matters |
-| --- | --- | --- |
-| VIIRS annual night-time lights | Light intensity in base and latest year | Captures electrification, commercial activity, and settlement intensity |
-| Census 2011 / LGD village master | Village names, IDs, state, district | Provides stable village reference frame |
-| Built-up / land-cover change | Built-up area in base and latest year | Captures construction and expansion |
-| Roads / PMGSY / OSM | Road length or connectivity | Growth is more credible when access improves |
-| OSM POIs or business amenities | Shops, schools, health, markets | Adds an economic services signal |
+`projects/villagepro/assets/all_india_village_boundaries_gee_upload`
 
-## 3. Pipeline steps
+The local merge output used for the upload was prepared under:
 
-1. Extract raw source files into `data/raw/`.
-2. Standardize village identifiers, names, state, district, latitude, and longitude.
-3. Aggregate satellite and infrastructure signals to village boundaries or village centroids.
-4. Create base-year and latest-year features for each signal.
-5. Clean missing and invalid values.
-6. Compute five-year growth rates.
-7. Normalize each growth signal using percentile ranks.
-8. Compute a weighted composite score.
-9. Rank villages and export top 100.
-10. Produce charts/maps for presentation.
+`Manual/Full_India/all_india_village_boundaries_gee_upload.zip`
 
-## 4. Feature engineering
+Some state shapefiles were unreadable or missing during the merge. This limitation is documented in the local `merge_report.txt` created during boundary preparation.
 
-For each village:
+## Satellite Data Sources
 
-- `ntl_growth_pct = (ntl_latest - ntl_base) / ntl_base`
-- `builtup_growth_pct = (builtup_latest - builtup_base) / builtup_base`
-- `road_growth_pct = (road_latest - road_base) / road_base`
-- `poi_growth_pct = (poi_latest - poi_base) / poi_base`
-- `ntl_per_capita_growth_pct = (ntl_latest / population_latest) - (ntl_base / population_base)` as percent growth
+1. VIIRS monthly night-time lights
+   - GEE collection: `NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG`
+   - Band used: `avg_rad`
+   - Purpose: proxy for electrification, commercial intensity, settlement activity, and evening economic activity.
 
-Small denominators are handled safely to avoid unstable division.
+2. Dynamic World built-area probability
+   - GEE collection: `GOOGLE/DYNAMICWORLD/V1`
+   - Band used: `built`
+   - Purpose: proxy for built-up expansion and settlement/construction growth.
 
-## 5. Scoring
+## Workflow
 
-Each growth feature is converted to a 0-100 percentile rank across all candidate villages. The final score is:
+1. Load the uploaded village polygon asset in Google Earth Engine.
+2. Build annual mean VIIRS night-light composites for 2021 and 2025.
+3. Build annual mean Dynamic World built-area probability composites for 2021 and 2025.
+4. Compute absolute and percentage night-light growth.
+5. Compute absolute and percentage built-area growth.
+6. Aggregate all raster signals to village polygons using zonal mean statistics.
+7. Remove records with missing baseline night-light values or zero baseline night-light values.
+8. Calculate a composite growth score when Dynamic World fields are included.
+9. Sort villages by the selected growth metric and export the ranked results.
 
-`score = 0.40*ntl + 0.25*builtup + 0.15*road + 0.10*ntl_per_capita + 0.10*poi`
+## Growth Score
 
-This makes the ranking explainable: a high-ranking village must show broad improvement, not just one extreme metric.
+The recommended combined scoring formula in the Earth Engine script is:
 
-## 6. Outputs
+`growth_score = 0.70 * night_light_percent_growth + 0.30 * built_area_percent_growth`
 
-- `data/processed/top_100_villages.csv`: final ranked dataset.
-- `outputs/figures/top_states.png`: top-village distribution by state.
-- `outputs/figures/score_distribution.png`: spread of economic growth scores.
-- `outputs/figures/top_100_map.html`: interactive map of ranked villages.
+Night lights receive a higher weight because they more directly capture economic activity intensity. Dynamic World built-area growth is used as a supporting signal, because construction and settlement expansion strengthen the interpretation that night-light growth is structural rather than temporary.
 
-## 7. Limitations
+The provided CSV file contains the VIIRS night-light ranking fields available in the local export. If the final review requires the combined Dynamic World score in the CSV, rerun `gee/village_growth_feature_extraction.js` and replace `data/processed/top_100_villages_Kritter.csv` with the new export.
 
-- Satellite lights can saturate or be affected by temporary events.
-- Village boundary matching can introduce spatial error.
-- OSM data coverage is uneven across states.
-- Economic growth is broader than visible infrastructure and lighting.
-- Census population baselines may be outdated.
+## Reproducibility
 
-## 8. Next steps with more time
+The Earth Engine script used for feature extraction and ranking is:
 
-- Use official village boundaries instead of centroid buffers.
-- Validate against district GDP, credit, GST, PMGSY, or employment datasets.
-- Add uncertainty bands for each rank.
-- Compare results across multiple weighting scenarios.
+`gee/village_growth_feature_extraction.js`
+
+To reproduce the output:
+
+1. Upload the merged village shapefile to Google Earth Engine.
+2. Update the asset ID in `gee/village_growth_feature_extraction.js` if needed.
+3. Run the script in the Earth Engine Code Editor.
+4. Start the CSV export task for `top_100_villages_growth_score_2021_2025`.
+5. Clean the exported CSV with `src/clean_gee_top100_export.py` if the geometry export creates extra columns.
+6. Place the cleaned CSV under `data/processed/`.
+
+## Output Dataset
+
+The submitted output file is:
+
+`data/processed/top_100_villages_Kritter.csv`
+
+It contains village identifiers and names, district/state attributes, night-light statistics, growth metrics, and geometry exported from Earth Engine.
+
+## Limitations
+
+- Night-time lights are a proxy and may be affected by temporary events, sensor noise, local lighting policy, or infrastructure unrelated to broad welfare.
+- Dynamic World built-area probability can confuse some bare or impervious surfaces with built-up areas.
+- The merged village boundary layer excludes or partially excludes states where source shapefiles were missing or corrupted.
+- The ranking is strongest as a screening tool. A final investment or policy conclusion should be validated with ground data such as roads, employment, firm registrations, household surveys, or administrative economic records.
