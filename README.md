@@ -12,6 +12,7 @@ This repository contains a simple workflow for identifying villages in India wit
 - `data/processed/top_100_villages.csv` - duplicate convenience copy of the submitted ranked output.
 - `docs/figures/workflow.png` - methodology flow chart.
 - `docs/methodology.md` - simple methodology note.
+- `docs/village_growth_intelligence_one_page.pdf` - one-page non-technical write-up.
 - `docs/slides_outline.md` - 5-7 slide presentation structure.
 
 ## Used datasets
@@ -30,4 +31,4 @@ Villages were ranked using night-light growth from 2021 to 2025. The GEE script 
 
 Open `gee/village_growth_feature_extraction.js` in the Earth Engine Code Editor, confirm the village asset path, run the export task, and save the exported CSV under `data/processed/`.
 
-Final files to review: `data/processed/top_100_villages_Kritter.csv`, `gee/village_growth_feature_extraction.js`, and `docs/methodology.md`.
+Final files to review: `data/processed/top_100_villages_Kritter.csv`, `gee/village_growth_feature_extraction.js`, `docs/methodology.md`, and `docs/village_growth_intelligence_one_page.pdf`.
